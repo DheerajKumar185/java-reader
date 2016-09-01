@@ -1,0 +1,70 @@
+@RequestMapping(value = "/admin/uploadExcel", method = RequestMethod.POST)
+	public @ResponseBody ResponseEntity<Map<String, Object>> uploadExcel(@RequestParam("uploadFile") MultipartFile file) throws ParseException {
+		HashMap<String, Object> response = (HashMap<String, Object>)sprAppCtx.getBean("response");
+		String fileName = null;
+		Workbook workbook = null;
+		Sheet sheet=null;
+		try {
+			List<Offer> offerList = new ArrayList<Offer>();
+			fileName = file.getOriginalFilename();
+			if(fileName.substring(fileName.lastIndexOf(".") + 1).equalsIgnoreCase("xls")){
+				workbook = new HSSFWorkbook(file.getInputStream());
+			    sheet = workbook.getSheetAt(0);
+			}else if (fileName.substring(fileName.lastIndexOf(".") + 1).equalsIgnoreCase("xlsx")){
+				workbook = new XSSFWorkbook(file.getInputStream());
+			    sheet = workbook.getSheetAt(0);
+			}
+		
+		int i = 1;
+		while (i <= sheet.getLastRowNum()) {
+			Offer offer = new Offer();
+			Row row = sheet.getRow(i++);
+			
+			offer.setMessage(row.getCell(0).getStringCellValue());
+			offer.setDetail(row.getCell(1).getStringCellValue());
+			offer.setStartDate(row.getCell(2).getDateCellValue());
+			offer.setEndDate(row.getCell(3).getDateCellValue());
+			offer.setImage(row.getCell(4).getStringCellValue());
+			
+			offerList.add(offer);
+		}
+		response.put("errorMessage", offerService.createOfferList(offerList));
+		logger.info("uploadExcel uploadExcelResponse::" + response);
+	} catch (Exception e) {
+		response.put("errorMessage", e.getMessage());
+	}	
+		return new ResponseEntity<Map<String, Object>>(response, HttpStatus.OK);
+	}
+	
+	@Override
+	public boolean createOfferList(List<Offer> offerList) {
+		boolean retVal = false;
+		if (offerRepository.saveList(offerList) != false) {
+			retVal = true;
+		}
+		return retVal;
+	}
+	
+	@Override
+	public boolean saveList(List<Offer> entityList) {
+		boolean retVal = false;
+		EntityManager entityManager = entityManagerFactory.createEntityManager();
+		EntityTransaction transaction = null;
+		try {
+			transaction = entityManager.getTransaction();
+			transaction.begin();
+			for(Offer entity : entityList) {
+				entityManager.persist(entity);
+			}			
+			logger.info("data saved=======>");
+			transaction.commit();
+			retVal = true;
+		} catch (Exception e) {
+			if (transaction != null) {
+				transaction.rollback();
+			}
+		} finally {
+			entityManager.close();
+		}
+		return retVal;
+	}
