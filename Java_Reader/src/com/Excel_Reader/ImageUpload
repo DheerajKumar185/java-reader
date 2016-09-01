@@ -1,0 +1,44 @@
+private static final String IMAGE_URL = "http://mspl-08-09-d158:8081/Upload_Files/";
+DateFormat df = new SimpleDateFormat("dd-MM-yyyy");
+	
+@RequestMapping(value = "/admin/createOffer", method = RequestMethod.POST)
+	public @ResponseBody ResponseEntity<Map<String, Object>> createOffer(@RequestParam("offerMessage") String message, @RequestParam("offerDetail") String detail,
+			@RequestParam("startDate") String startDate, @RequestParam("endDate") String endDate, @RequestParam("offerImage") MultipartFile image) throws ParseException {
+		HashMap<String, Object> response = (HashMap<String, Object>)sprAppCtx.getBean("response");
+		String fileName = null;
+		logger.info("In createOffer controller ===>");
+		if (!image.isEmpty()) {
+			try {
+				byte[] bytes = image.getBytes();
+				fileName = image.getOriginalFilename();
+				// Creating the directory to store file
+				String rootPath = System.getProperty("catalina.home") + "\\webapps";
+				File dir = new File(rootPath + File.separator + "Upload_Files");
+				if (!dir.exists())
+					dir.mkdirs();
+
+				// Create the file on server
+				File serverFile = new File(dir + File.separator + fileName);
+				BufferedOutputStream stream = new BufferedOutputStream(
+						new FileOutputStream(serverFile));
+				stream.write(bytes);
+				stream.close();
+
+				Offer offer = new Offer();
+				offer.setMessage(message);
+				offer.setDetail(detail);
+				offer.setStartDate(df.parse(startDate));
+				offer.setEndDate(df.parse(endDate));
+				offer.setImage(IMAGE_URL + fileName);
+				
+				response.put("errorMessage", offerService.createOffer(offer));
+				logger.info("createOffer createOfferResponse::" + response);
+			} catch (Exception e) {
+				response.put("errorMessage", e.getMessage());
+			}
+		} else {
+			response.put("errorMessage", "Failed to upload because the file was empty.");			
+		}
+		logger.info("createOffer createOfferResponse::" + response);
+		return new ResponseEntity<Map<String, Object>>(response, HttpStatus.OK);
+	}
